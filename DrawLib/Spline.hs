@@ -51,7 +51,7 @@ speed (c, b, c2) x = magnitude(((2 * x) *^ (c ^+^ c2) ^-^ (4 * x) *^ b) ^-^ 2 *^
 convertRatio :: (Real a, Fractional b) => a -> b
 convertRatio = fromRational.toRational
 
-factor = 0.1
+factor = 0.15
 curveLengthEstimate(c, b, c2) = magnitude(b ^-^ c) + magnitude(c2 ^-^ b)
 intensities tup = (graph tup &&& speed tup &&& const est) <$> [0,est..1] where
 	est = factor*recip(curveLengthEstimate tup)
@@ -79,16 +79,16 @@ data DrawType = NoAA | AA | Filled deriving Eq
 drawAAFunction :: DrawType -> Double -> Float -> (Bool,Bool) -> (Bool,Bool) -> FPoint -> Int32 -> FPoint -> COLORREF -> Draw()
 drawAAFunction NoAA _ _ _ _ _ _ = setP.(floor***floor)
 drawAAFunction AA factor speed _ _ _ _ = blendIn(factor * convertRatio speed)
-drawAAFunction Filled _ _ (prevSign,sign) (_,signX) (prevX,prevY) startX = \(x,y) clr ->
+drawAAFunction Filled _ _ (prevSign,sign) (prevSignX,signX) (prevX,prevY) startX = \(x,y) clr ->
 	let
 	xf = floor -- if not sign then floor else ceiling
 	yf = if sign then floor else ceiling
 	x' = xf x
 	y' = yf y
-	signXor = prevSign/=sign in
+	signXor = prevSignX/=signX in
 	when(floor y/=floor prevY) (do
 	clr' <- getP(x',y')
-	let set = (clr'==white)/=signXor
+	let set = clr'==white
 	let clr'' = if set then 0 else white
 	mapM_(\x''->unsafeSetP(x'',y') clr'') [0..x'])
 -- It draws the fringe of a spline if 'aa' is set to 'NoAA', or 'AA'. It draws the filled
