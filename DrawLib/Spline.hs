@@ -3,9 +3,7 @@
 -- | The method this module uses is to separate the drawing process into drawing the
 --  antialiased fringe and drawing the filled interior. The former can be made fast
 --  because few points are touched, and the latter can likewise be made fast as
---  no antialiasing/supersampling calculations are necessary. To further improve
---  performance, the two steps have been set up to run in parallel (if parallelism
---  is enabled).
+--  no antialiasing/supersampling calculations are necessary.
 module DrawLib.Spline (FPoint, DrawType(NoAA, AA), BezierSpline, spline, filledSpline, recoverBezierSplineFromParameters) where
 
 import Data.Bits
@@ -201,10 +199,10 @@ filledSpline aa clr knots = do
 	let drawT = if aa then AA else NoAA
 	let maskBmp = snd
 		$onNewBitmap boxDims
-		$drawAA Filled 0 white parameters'
-	maskBmp `par` return()
-	withIdentityTransform$drawAA drawT 0 clr parameters
-	mask clr ptMnI maskBmp
+		$do
+		drawAA Filled 0 white parameters'
+		drawAA drawT 0 white parameters'
+	mask2(\clr2 bright->blendColour(fromIntegral(getRValue bright)/255) clr clr2) ptMnI maskBmp
 
 recoverBezierSplineFromParameters :: [(FPoint, FPoint, FPoint)] -> BezierSpline
 recoverBezierSplineFromParameters parameters = (\(c, b, _) -> (c, b ^-^ c)) <$> parameters

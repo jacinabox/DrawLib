@@ -18,7 +18,7 @@ f = (rgb 255 192 255, rgb 96 96 192, "Times New Roman", 128, fW_NORMAL, True, Fa
 main = writeBMP"C:\\users\\james\\documents\\Test.bmp"$snd$onNewBitmap(750, 550)$do
 	fillRect(rgb 192 128 0) (0, 0, 800, 600)
 	mapM_(petal(250, 250)) [0,pi*0.25..2*pi]
-	drawFilledEllipse True(rgb 255 192 0) (210,210,290,290)
+	drawFilledEllipse True(rgb 255 192 0) (213,213,287,287)
 	textOut"Haskell" (450, 400) f
 {-spl = polygon[(150, 50), (50, 150), (200, 60)]
 main = writeBMP"C:\\users\\james\\documents\\Test.bmp"$snd$onNewBitmap(400, 300)$do

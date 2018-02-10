@@ -250,7 +250,8 @@ scale (cx, cy) = ThreeD cx 0 0 0 cy 0
 
 blendColour :: Double -> COLORREF -> COLORREF -> COLORREF
 blendColour intensity clr clr2 = rgb(formula getRValue) (formula getGValue) (formula getBValue)
-	where formula f = round((1-intensity)*fromIntegral(f clr2)+intensity*fromIntegral(f clr))
+	where
+	formula f = round((1-intensity)*fromIntegral(f clr2)+intensity*fromIntegral(f clr))
 
 -- | Blend a colour into a pixel.
 {-# INLINE blend #-}
