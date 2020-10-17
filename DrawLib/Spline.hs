@@ -22,6 +22,7 @@ import Control.Applicative
 import Control.Parallel
 import qualified Control.Monad.Catch as C
 import Control.Monad
+--import Control.Exception.Assert
 import Data.VectorSpace
 import DrawLib
 import DrawLib.Functional
@@ -86,8 +87,8 @@ drawAAFunction AA factor speed _ _ _ _ _ = blendIn(factor * convertRatio speed)
 drawAAFunction Filled _ _ qb (prevSign,sign) (prevSignX, signX) (prevX,prevY) startX = \(x,y) clr ->
 	do
 	let b0 = qb
-	let xf = if not b0||signX then floor else ceiling
-	let yf = if b0||sign then floor else ceiling
+	let xf = (if sign||signX then id else pred).(if (b0/=sign)||signX then floor else ceiling)
+	let yf = (if sign||not signX then id else succ).(if (b0/=signX)||sign then floor else ceiling)
 	let x' = xf x
 	let y' = yf y
 	b <- inBounds(x',y')
