@@ -51,10 +51,10 @@ speed (c, b, c2) x = magnitude(((2 * x) *^ (c ^+^ c2) ^-^ (4 * x) *^ b) ^-^ 2 *^
 convertRatio :: (Real a, Fractional b) => a -> b
 convertRatio = fromRational.toRational
 
-factor = 0.15
+factor = 0.05
 curveLengthEstimate(c, b, c2) = magnitude(b ^-^ c) + magnitude(c2 ^-^ b)
-intensities tup = (graph tup &&& speed tup &&& const est) <$> [0,est..1] where
-	est = factor*recip(curveLengthEstimate tup)
+intensities tup = (graph tup &&& speed tup &&& const est) <$> [est,2*est..1-est] where
+	est = factor/curveLengthEstimate tup
 
 pairUp ls = zip ls(tail ls)
 
@@ -75,22 +75,28 @@ firstDerivativeSign ls =
 	False
 	$pairUp ls
 
+quadrantB :: (Float,Float) -> Bool
+-- Decide whether the vector lies within the angles [pi/4,3*pi/4] or within the angles
+-- [-3*pi/4,-pi/4] which both result in True.
+quadrantB (dx, dy) = (dy>0)==(dy>dx)
 data DrawType = NoAA | AA | Filled deriving Eq
-drawAAFunction :: DrawType -> Double -> Float -> (Bool,Bool) -> (Bool,Bool) -> FPoint -> Int32 -> FPoint -> COLORREF -> Draw()
-drawAAFunction NoAA _ _ _ _ _ _ = setP.(floor***floor)
-drawAAFunction AA factor speed _ _ _ _ = blendIn(factor * convertRatio speed)
-drawAAFunction Filled _ _ (prevSign,sign) (prevSignX,signX) (prevX,prevY) startX = \(x,y) clr ->
-	let
-	xf = floor -- if not sign then floor else ceiling
-	yf = if sign then floor else ceiling
-	x' = xf x
-	y' = yf y
-	signXor = prevSignX/=signX in
-	when(floor y/=floor prevY) (do
-	clr' <- getP(x',y')
-	let set = clr'==white
-	let clr'' = if set then 0 else white
-	mapM_(\x''->unsafeSetP(x'',y') clr'') [0..x'])
+drawAAFunction :: DrawType -> Double -> Float -> Bool -> (Bool,Bool) -> (Bool,Bool) -> FPoint -> Int32 -> FPoint -> COLORREF -> Draw()
+drawAAFunction NoAA _ _ _ _ _ _ _ = setP.(floor***floor)
+drawAAFunction AA factor speed _ _ _ _ _ = blendIn(factor * convertRatio speed)
+drawAAFunction Filled _ _ qb (prevSign,sign) (prevSignX, signX) (prevX,prevY) startX = \(x,y) clr ->
+	do
+	let b0 = qb -- if b0==sign||b0==signX then pred.ceiling
+	let xf = if not b0||signX then floor else ceiling
+	let yf = if b0||sign then floor else ceiling
+	let x' = xf x
+	let y' = yf y
+	b <- inBounds(x',y')
+	when(floor y/=floor prevY&&b) (do
+		clr' <- getP(x',y')
+		let set = clr'==white
+		let clr'' = if set then 0 else white
+		mapM_(\x''->unsafeSetP(x'',y') clr'') [0..x'])
+
 -- It draws the fringe of a spline if 'aa' is set to 'NoAA', or 'AA'. It draws the filled
 -- interior of a spline if 'aa' is set to 'Filled'.
 --
@@ -107,24 +113,26 @@ drawAAFunction Filled _ _ (prevSign,sign) (prevSignX,signX) (prevX,prevY) startX
 -- bit-flipping operation is done any time the curve changes direction; for this, it is
 -- necessary to keep track of from which direction scanlines were entered, above or below.
 -- When the drawing is finished, the bits in the bitmap describe the areas that should
--- be filled with coloured pixels.
+-- be filled with coloured pixels. (Also note that this step of the algorithm is optimized
+-- for drawing a filled curve that does not cross itself -- using this algorithm to draw
+-- a curve that crosses itself leads to a displeasing result.)
 --
--- Define N(pt,figure) equal to the number of edge crossings a ray from a point 'pt' encounters
--- passing through the figure 'figure'. The spline filling procedure is based on the elementary
--- observation that whether a point is inside a figure, has to do with the parity of the number
--- N(pt,figure).
+-- Define the number of edge crossings a ray from a point 'pt' encounters passing through the
+-- figure 'figure'. Whether a point is inside a figure, has to do with the parity of this number
+-- (which is the same no matter which ray is chosen).
 drawAA :: DrawType
 	-> Int32
 	-> COLORREF
 	-> [(FPoint, FPoint, FPoint)]
 	-> Draw()
-drawAA aa startX clr parms = mapM_(\((prevsign, prevsignX, (prev, _)), (sign, signX, (pt, (speed, est)))) ->
-	drawAAFunction aa(convertRatio est) speed (prevsign,sign) (prevsignX,signX) prev startX pt clr)
-	$pairUp$zip3
+drawAA aa startX clr parms = mapM_(\((_,  prevsign, prevsignX, (prev, _)), (qb, sign, signX, (pt, (speed, est)))) ->
+	drawAAFunction aa(convertRatio est) speed qb (prevsign,sign) (prevsignX, signX) prev startX pt clr)
+	$pairUp$zip4
+	(quadrantB.snd <$> parms')
 	(firstDerivativeSign(floor.snd.fst <$> parms'))
 	(firstDerivativeSign(floor.fst.fst <$> parms'))
 	parms' where
-	parms' = concat$intensities <$> parms
+	parms' =concat$intensities <$> parms
 
 -- When the two vectors point in the same/opposite directions, the location of the knot
 -- is underdetermined. In this case place the knot equidistant between the two points.
@@ -158,7 +166,7 @@ spline aa clr knots = do
 	withIdentityTransform$drawAA aa 0 clr parameters
 
 buffer :: FPoint
-buffer = (1, 1)
+buffer = (100, 100)
 
 blendF clr clr2 = blendColour(fromIntegral(getRValue clr2)/255)
 	clr
@@ -177,9 +185,9 @@ shrinkByOne mask = snd$onNewBitmap dims$function'$ \x y->
 	where
 	dims@(wid,ht) = askDims' mask
 
--- | Draw an antialiased filled spline. The spline filling procedure is really accurate when it works, but
--- has edge cases where it misses filling some regions.
-filledSpline aa clr knots = do
+-- | Draw an antialiased filled spline.
+
+filledSpline aa clr knots@(_:_:_) = do
 	dims <- askDims
 	transform <- askTransform
 	let knots' = transformSpline transform knots
@@ -203,6 +211,7 @@ filledSpline aa clr knots = do
 		drawAA Filled 0 white parameters'
 		drawAA drawT 0 white parameters'
 	mask2(\clr2 bright->blendColour(fromIntegral(getRValue bright)/255) clr clr2) ptMnI maskBmp
+filledSpline _ _ _ = return()
 
 recoverBezierSplineFromParameters :: [(FPoint, FPoint, FPoint)] -> BezierSpline
 recoverBezierSplineFromParameters parameters = (\(c, b, _) -> (c, b ^-^ c)) <$> parameters

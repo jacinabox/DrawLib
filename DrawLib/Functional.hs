@@ -18,7 +18,7 @@ import qualified Control.Monad.Catch as C
 import Control.Monad
 import Codec.BMP
 import DrawLib
-import Control.CUtils.DataParallel
+--import Control.CUtils.DataParallel
 import Prelude hiding (replicate)
 
 clipRect :: RECT -> RECT -> RECT
@@ -36,7 +36,7 @@ functionalScan :: RECT -> (COLORREF -> Int32 -> Int32 -> State s COLORREF) -> s 
 functionalScan rt f init = do
 	(wid, ht) <- askDims
 	let (x1, y1, x2, y2) = clipRect rt(0, 0, wid, ht)
-	unsafeConcF_(fromIntegral$y2-y1)$ \y -> let y' = fromIntegral y+y1 in
+	when(x1<x2&&y1<y2)$unsafeConcF_(fromIntegral$y2-y1)$ \y -> let y' = fromIntegral y+y1 in
 		evalStateT
 			(mapM_(\x -> do
 				c <- lift(unsafeGetP(x, y'))

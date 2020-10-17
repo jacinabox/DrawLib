@@ -308,6 +308,6 @@ unTuple (r, g, b) = rgb (round r) (round g) (round b)
 unsafeConcF_ :: Int->(Int->Draw())->Draw()
 unsafeConcF_ n f = do
 	let ?seq = True
-	let ?pool = BoxedThreadPool NoPool
+	let ?pool = globalPool
 	tup <- unsafeAsk
-	unsafeLiftIO$concF_ n$unwrapDraw tup.f
+	unsafeLiftIO$concF_ n(Kleisli(const(unwrapDraw tup.f))) ()
