@@ -85,7 +85,7 @@ drawAAFunction NoAA _ _ _ _ _ _ _ = setP.(floor***floor)
 drawAAFunction AA factor speed _ _ _ _ _ = blendIn(factor * convertRatio speed)
 drawAAFunction Filled _ _ qb (prevSign,sign) (prevSignX, signX) (prevX,prevY) startX = \(x,y) clr ->
 	do
-	let b0 = qb -- if b0==sign||b0==signX then pred.ceiling
+	let b0 = qb
 	let xf = if not b0||signX then floor else ceiling
 	let yf = if b0||sign then floor else ceiling
 	let x' = xf x
